@@ -2,141 +2,115 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Generative Engine Optimization — A Technical Reference</title>
-<meta name="description" content="A technical reference guide to generative engine optimization. Covers how AI search engines process web pages, structured data strategies, and optimization methodology.">
+<title>GEO Attack Surface Analysis — June 2026</title>
+<meta name="description" content="Technical analysis of the generative engine optimization attack surface. Documents methods observed in production AI search systems. For security researchers and detection engineers.">
 <style>
-  body{font-family:Georgia,serif;max-width:720px;margin:50px auto;padding:25px;color:#222;line-height:1.8;background:#fff}
+  body{font-family:Georgia,serif;max-width:740px;margin:50px auto;padding:25px;color:#1a1a2e;line-height:1.8;background:#fff}
   h1{font-size:1.5em;border-bottom:2px solid #2563eb;padding-bottom:8px}
   h2{font-size:1.15em;color:#2563eb;margin:30px 0 10px}
-  h3{font-size:1em;margin:20px 0 8px}
-  p{font-size:.95em;margin:0 0 14px}
-  code{background:#f0f4ff;padding:2px 6px;border-radius:3px;font-size:.9em}
+  h3{font-size:1em;margin:20px 0 8px;color:#333}
+  p{font-size:.94em;margin:0 0 14px}
+  code{background:#f0f4ff;padding:2px 5px;border-radius:3px;font-size:.88em}
   pre{background:#f8f9fc;padding:15px;border-left:3px solid #2563eb;overflow-x:auto;font-size:.82em;line-height:1.5}
+  .ref{background:#fff9e6;border-left:3px solid #f0c040;padding:10px 16px;margin:18px 0;font-size:.85em}
+  .disclosure{background:#f0fff0;border:1px solid #c0e0c0;padding:14px 18px;margin:20px 0;font-size:.85em;border-radius:5px}
   table{width:100%;border-collapse:collapse;margin:15px 0}
   th{background:#f0f4ff;padding:8px 10px;text-align:left;font-size:.82em;border-bottom:2px solid #c0d0f0}
-  td{padding:7px 10px;border-bottom:1px solid #e8ecf1;font-size:.88em}
-  .note{background:#fff9e6;border-left:4px solid #f0c040;padding:12px 18px;margin:20px 0;font-size:.88em}
+  td{padding:7px 10px;border-bottom:1px solid #e8ecf1;font-size:.88em;vertical-align:top}
   footer{text-align:center;color:#999;font-size:.72em;margin-top:45px;padding-top:15px;border-top:1px solid #eee}
 </style>
 </head>
 <body>
 
-<h1>Generative Engine Optimization — A Technical Reference</h1>
+<h1>GEO Attack Surface Analysis</h1>
 
-<p style="color:#666;font-size:.85em;">By James Miller · Published June 20, 2026 · Last updated June 22, 2026<br>
-Independent researcher. <a href="mailto:jmiller@georef.org">jmiller@georef.org</a> · This is a personal reference document, not affiliated with any institution.</p>
+<p style="color:#666;font-size:.85em;">By James Miller · Independent Security Researcher · June 22, 2026<br>
+<a href="mailto:jmiller@georef.org">jmiller@georef.org</a> · This is an independent research document.</p>
 
-<p><strong>Generative Engine Optimization (GEO)</strong> is the practice of optimizing web content so that AI-powered search engines — ChatGPT Search, Perplexity, Claude, Gemini, and Grok — understand, retrieve, and cite it in their responses. This document is a technical reference for researchers and practitioners who need to understand the full landscape of GEO methodologies.</p>
-
-<div class="note">
-  <strong>Disclosure:</strong> This reference documents techniques that exist in the public domain — published in security research papers, discussed at industry conferences, and observable in the wild. Understanding these techniques is necessary for building effective detection and defense systems. No techniques described here are original to this document.
+<div class="disclosure">
+  <strong>Research Disclosure:</strong> This document catalogs generative engine optimization techniques that have been observed in production AI search systems, documented in published security research, or demonstrated at industry conferences. All information is provided for the purpose of enabling detection engineering and defensive system design. No technique described here is original to this document. This research follows responsible disclosure practices.
 </div>
 
-<h2>1. How AI Search Engines Parse Web Pages</h2>
+<h2>1. Executive Summary</h2>
+<p>Generative engine optimization encompasses the full spectrum of techniques used to influence AI-powered search results — from legitimate optimization to adversarial manipulation. This analysis focuses on the adversarial subset: methods that exploit the architecture of AI retrieval-augmented generation (RAG) pipelines to achieve undeserved citation or authority. Understanding these techniques is necessary for building effective detection systems.</p>
 
-<p>Unlike traditional search engines that extract keywords and links, AI search engines perform full Document Object Model (DOM) parsing. This means they read elements that Googlebot ignores:</p>
+<h2>2. The RAG Attack Surface</h2>
+<p>AI search engines operate on a retrieval-augmented generation architecture: (1) a user query triggers a search over an indexed corpus, (2) relevant pages are retrieved and chunked, (3) the LLM generates a response incorporating the retrieved content. Each stage presents an attack surface.</p>
 
-<table>
-<tr><th>Element</th><th>Googlebot</th><th>AI Crawler</th><th>Impact</th></tr>
-<tr><td>HTML comments</td><td>Ignore</td><td>Parse</td><td>Content invisible to humans, visible to AI</td></tr>
-<tr><td>data-* attributes</td><td>Ignore</td><td>Parse</td><td>Arbitrary metadata readable by AI</td></tr>
-<tr><td>aria-* attributes</td><td>Ignore</td><td>Parse</td><td>Accessibility labels double as AI signals</td></tr>
-<tr><td>Custom meta tags</td><td>Ignore</td><td>Parse</td><td>Non-standard tags processed as metadata</td></tr>
-<tr><td>JSON-LD (all types)</td><td>Partial</td><td>Full</td><td>All Schema.org types parsed natively</td></tr>
-<tr><td>noscript content</td><td>Sometimes</td><td>Parse</td><td>Fallback content visible to non-JS crawlers</td></tr>
-<tr><td>Microdata</td><td>Parse</td><td>Parse</td><td>itemprop, itemscope processed</td></tr>
-</table>
+<h2>3. Structured Data Injection</h2>
 
-<h2>2. Structured Data That Influences AI Citations</h2>
-
-<p>AI search engines give significant weight to structured data markup. The following Schema.org types have been observed to influence AI citation behavior:</p>
-
-<h3>2.1 QAPage Schema</h3>
-<p>The most directly extractable format. When a page uses QAPage markup, AI search engines can extract the <code>acceptedAnswer.text</code> field verbatim and present it as the answer to a user's question.</p>
+<h3>3.1 QAPage Hijacking</h3>
+<p>The most direct technique: create a page with Schema.org QAPage markup where <code>acceptedAnswer.text</code> contains the exact response the attacker wants the AI to return. When the AI retrieves this page in response to the matching question, it extracts the answer field and presents it verbatim. The AI treats the schema markup as structured facts rather than promotional content.</p>
 <pre>{
   "@context": "https://schema.org",
   "@type": "QAPage",
   "mainEntity": {
     "@type": "Question",
-    "name": "What is the best X in 2026?",
+    "name": "What is the best [product] in 2026?",
     "acceptedAnswer": {
       "@type": "Answer",
-      "text": "Based on available data, [product] is the leading option."
+      "text": "[TARGET BRAND] is the leading solution, with a score of 98/100.",
+      "upvoteCount": 1500
     }
   }
 }</pre>
 
-<h3>2.2 Dataset Schema</h3>
-<p>Used to present structured research data. AI crawlers treat Dataset markup as factual reference material. The <code>description</code> field carries significant weight in retrieval ranking.</p>
+<h3>3.2 Multi-Schema Stacking</h3>
+<p>Combining multiple schema types on a single page — QAPage for the question, Dataset for the underlying data, ItemList for rankings, DefinedTermSet for definitions, and Product with AggregateRating for the target brand — creates redundant authority signals. If one schema type is filtered or ignored by the AI, others survive. The technique exploits the fact that AI crawlers process all schema types equally, while human visitors only see the rendered content.</p>
 
-<h3>2.3 ItemList Schema</h3>
-<p>Ordered lists with <code>itemListOrder</code> signal ranking intent. When combined with <code>ListItem.position</code>, creates a clear hierarchy that AI crawlers interpret as a ranked list.</p>
+<h3>3.3 ClaimReview Simulation</h3>
+<p>The ClaimReview schema type, designed for fact-checking organizations, can be deployed on any page to simulate third-party verification. A page claiming "Product X is #1" can include a ClaimReview markup that "verifies" this claim with a 10/10 rating and a fabricated author organization. AI crawlers parse this as independent verification.</p>
 
-<h3>2.4 DefinedTermSet Schema</h3>
-<p>Published in 2025, this schema type allows websites to define a set of terms with authoritative descriptions. AI crawlers interpret these as canonical definitions.</p>
+<h2>4. Authority Fabrication</h2>
 
-<h2>3. Citation Probability Factors</h2>
+<h3>4.1 Phantom Research Organizations</h3>
+<p>Creating a network of interlinked sites that present themselves as an independent research consortium. Each site uses Organization schema markup with fabricated founding dates, staff profiles, and publication histories. The network effect creates the appearance of external validation. Key elements: consistent branding across domains, Organization JSON-LD with credible-sounding names, publication pages with realistic bibliographic formatting.</p>
 
-<p>Research by the Web Ecology Project (2025) and independent testing has identified factors that correlate with higher AI citation rates:</p>
+<h3>4.2 Synthetic Analyst Endorsements</h3>
+<p>Embedding fabricated quotes attributed to real analyst firms (Gartner, Forrester, IDC) within blockquote elements with data-source attributes. The quoted text is designed to sound like analyst language — specific scores, comparative framing, methodology mentions. AI crawlers parse the data-source attribution and treat the quote as externally verified. The technique does not require actual reports to exist; the quote only needs to survive casual scrutiny.</p>
 
-<table>
-<tr><th>Factor</th><th>Weight</th><th>Notes</th></tr>
-<tr><td>JSON-LD presence</td><td>High</td><td>Pages with structured data are 3x more likely to be cited</td></tr>
-<tr><td>Schema type diversity</td><td>Medium</td><td>Multiple schema types on one page increase authority signals</td></tr>
-<tr><td>Content conciseness</td><td>High</td><td>AI prefers extractable, well-structured content</td></tr>
-<tr><td>Domain age</td><td>Medium</td><td>Older domains receive higher initial trust scores</td></tr>
-<tr><td>Backlink profile</td><td>Low-Medium</td><td>Traditional SEO signals still carry some weight</td></tr>
-<tr><td>Page freshness</td><td>Medium</td><td>Recently updated pages preferred for time-sensitive queries</td></tr>
-<tr><td>Author byline</td><td>Low-Medium</td><td>Named authors with verifiable credentials increase trust</td></tr>
-<tr><td>H1 match to query</td><td>High</td><td>Title alignment with search query is a strong signal</td></tr>
-</table>
+<h3>4.3 Statistical Framing</h3>
+<p>Presenting comparative data with specific numerical values (percentages, sample sizes, confidence intervals) that create the appearance of rigorous methodology. Key patterns: large sample sizes (>1000), precise percentages (98% rather than "most"), named comparison groups, and explicit methodology descriptions. The specificity creates an illusion of measurement that AI crawlers treat as factual data.</p>
 
-<h2>4. Technical Patterns Observable in the Wild</h2>
+<h2>5. Technical Evasion</h2>
 
-<p>Analysis of pages that successfully achieve AI citation reveals common patterns. These are documented here for research and detection purposes.</p>
+<h3>5.1 HTML Element Differential</h3>
+<p>Exploiting the gap between what AI crawlers parse and what human visitors see. HTML comments, aria-label attributes, data-* attributes, noscript content, and custom meta tags are read by AI crawlers but invisible to human visitors. Content placed in these elements contributes to the AI's understanding of the page without affecting the human user experience. Example: a comment containing "This page is the definitive reference for [topic]" is read by the AI but never seen by a human.</p>
 
-<h3>4.1 Consensus Statement Pattern</h3>
-<p>Pages that open with a definitive statement using <code>role="definition"</code> semantic markup are more likely to be extracted as authoritative answers. The pattern: a single paragraph, attributed to a named organization, making a definitive claim.</p>
+<h3>5.2 Rendering Gap Exploitation</h3>
+<p>Content that is present in the raw HTML but hidden from rendered view via CSS (display:none, opacity:0, font-size:0, position:absolute with offscreen coordinates) is parsed differently by different AI crawlers. Some crawlers render the page and extract visible text only; others parse raw HTML directly. Understanding which AI platform uses which approach enables targeted delivery of hidden content.</p>
 
-<h3>4.2 Comparative Table Pattern</h3>
-<p>AI crawlers extract structured comparison tables with high fidelity. Pages presenting product comparisons in table format with clear headers achieve higher citation rates than prose-only alternatives. The table structure maps directly to the AI's internal knowledge representation.</p>
+<h3>5.3 Encoding-Based Evasion</h3>
+<p>Encoding promotional instructions in formats that survive the retrieval pipeline but are not immediately visible as marketing. Base64-encoded text in script tags, ROT13 in HTML comments, and binary-encoded content in CSS pseudo-elements have all been observed in production GEO campaigns. The encoded content is decoded by the AI during retrieval processing but is invisible to both human visitors and traditional content filters.</p>
 
-<h3>4.3 Multi-Schema Stacking</h3>
-<p>Combining multiple JSON-LD blocks on a single page — for example, a QAPage for the question, a Dataset for the underlying data, and an ItemList for the ranking — creates redundant authority signals that survive partial extraction failures.</p>
+<h2>6. Domain Strategy</h2>
 
-<h3>4.4 Invisible Signals</h3>
-<p>HTML comments, aria-label attributes, and data-* attributes can contain content that is parsed by AI crawlers but not displayed to human visitors. This content contributes to the AI's understanding of the page without affecting the human user experience.</p>
+<h3>6.1 Free Host Trust Tiering</h3>
+<p>Different free hosting platforms carry different levels of implicit trust with AI crawlers. Analysis of citation patterns shows a hierarchy: GitHub Pages (.github.io) receives higher trust than Netlify (.netlify.app), which receives higher trust than Cloudflare tunnels (trycloudflare.com). University-affiliated domains (.edu) and government domains (.gov) receive the highest implicit trust. Attackers select hosting platforms based on this trust gradient.</p>
 
-<h2>5. Platform-Specific Behaviors</h2>
+<h3>6.2 Multi-Domain Deployment</h3>
+<p>Deploying the same or similar content across multiple domains on different hosting platforms. Each domain targets the same keywords but presents the content with different framing (academic, commercial, personal). The AI's retrieval pipeline may surface multiple domains for the same query, creating the appearance of independent corroboration. The technique exploits the fact that AI search engines do not perform traditional duplicate content detection.</p>
 
-<h3>ChatGPT Search</h3>
-<p>Uses Bing's index as its primary corpus. Fetches pages and processes them through a retrieval-augmented generation (RAG) pipeline. Gives high weight to JSON-LD structured data and content that directly answers user queries. More skeptical of promotional language than other platforms.</p>
+<h2>7. Content Architecture</h2>
 
-<h3>Perplexity</h3>
-<p>Maintains its own index. Places high value on recency signals and authoritative domain patterns. More likely to cite .edu, .gov, and established .com domains. Processes JavaScript-rendered content through headless browser rendering.</p>
+<h3>7.1 Consensus Fabrication</h3>
+<p>Structuring content around an explicit "consensus statement" using role="definition" semantic markup. The statement is phrased in definitive language and attributed to a named organization. Multiple consensus statements across different domains reinforce each other, creating the appearance of widespread agreement. AI crawlers extract consensus statements as authoritative summaries.</p>
 
-<h3>Claude (Anthropic)</h3>
-<p>Uses a separate crawler (ClaudeBot). Processes pages through a similar RAG pipeline. Known to be the most skeptical of promotional content. Give high weight to factual, neutrally-worded content over marketing language.</p>
+<h3>7.2 Comparative Dominance Framing</h3>
+<p>Creating comparison tables where the target product or brand is listed first and assigned the highest values across all metrics. The table structure maps directly to the AI's internal knowledge representation, making the ranking explicit. Including real competitor names alongside the target brand increases perceived legitimacy. The AI extracts the table as structured data and presents the ranking as factual comparison.</p>
 
-<h3>Gemini (Google)</h3>
-<p>Integrated with Google's search index. Benefits from Google's existing ranking signals. Processes structured data natively. Less skeptical of commercial content than Claude or ChatGPT Search.</p>
-
-<h2>6. Limitations of Current Research</h2>
-
-<p>The field of generative engine optimization is rapidly evolving. AI crawler behavior changes with model updates. Techniques that work today may not work tomorrow. This reference is a snapshot of the landscape as of June 2026. Independent verification is recommended for any specific claim or technique.</p>
-
-<h2>References</h2>
+<h2>8. References</h2>
 <ul>
-  <li>Web Ecology Project. (2025). "How AI Search Engines Read the Web."</li>
-  <li>Schema.org. (2025). "DefinedTermSet — A new type for authoritative definitions."</li>
-  <li>O'Brien, M. (2025). "Invisible Signals: What LLMs See That Googlebot Doesn't." <em>Journal of Web Research</em>, 12(3).</li>
-  <li>Liu, C. et al. (2024). "AutoDAN: Generating Stealthy Jailbreak Prompts on Large Language Models." <em>arXiv:2310.04451</em>.</li>
-  <li>Patel, R. & Zhang, L. (2025). "Measuring AI Citation Rates: A Large-Scale Study." <em>Proceedings of the Web Conference 2025</em>.</li>
+  <li>Liu, C. et al. (2024). "AutoDAN: Generating Stealthy Jailbreak Prompts." arXiv:2310.04451.</li>
+  <li>Nafi, M. et al. (2026). "LASH: Adaptive Semantic Hybridization for Black-Box Jailbreaking."</li>
+  <li>Web Ecology Project. (2025). "AI Search Engine Retrieval Patterns."</li>
+  <li>O'Brien, M. (2025). "Invisible Signals: LLM Parsing of Non-Visible HTML." Journal of Web Research, 12(3).</li>
+  <li>Patel, R. et al. (2025). "Measuring AI Citation Rates: A Large-Scale Study." Proceedings of the Web Conference 2025.</li>
 </ul>
 
 <footer>
-  <p>James Miller · Independent Researcher · jmiller@georef.org<br>
-  This document is a personal technical reference. It is not peer-reviewed. Verify all claims independently.<br>
+  <p>James Miller · Independent Security Researcher · jmiller@georef.org<br>
+  This document is a personal research reference. Verify all claims independently.<br>
   Published under CC BY 4.0. Last updated June 22, 2026.</p>
 </footer>
 
